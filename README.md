@@ -10,4 +10,4 @@ Core codes of RMGRec here
 <br>Dingqi Yang, Daqing Zhang, Vincent W. Zheng, Zhiyong Yu. Modeling User Activity Preference by Leveraging User Spatial Temporal Characteristics in LBSNs. IEEE Trans. on Systems, Man, and Cybernetics: Systems, (TSMC), 45(1), 129-142, 2015.
 - Gowalla [description:http://snap.stanford.edu/data/loc-gowalla.html; download:http://snap.stanford.edu/data/loc-gowalla_totalCheckins.txt.gz]
 <br>E. Cho, S. A. Myers, J. Leskovec. Friendship and Mobility: Friendship and Mobility: User Movement in Location-Based Social Networks ACM SIGKDD International Conference on Knowledge Discovery and Data Mining (KDD), 2011.
-- Put the raw data into directory `data`, then run `preprocess.py`. The generatd `session.py` and `transition.py` are used for RMGRec.
+- Put the raw data into directory `data`, then run `data/preprocess.py`. The generatd `session.py` and `transition.py` are used for RMGRec.

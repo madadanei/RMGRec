@@ -34,21 +34,21 @@ class meta_ggsnn(nn.Module):
         w_ih, w_hh, b_ih, b_hh = nn.Parameter(w_ih), nn.Parameter(w_hh), nn.Parameter(b_ih), nn.Parameter(b_hh)
         return w_ih, w_hh, b_ih, b_hh
 
-    def ggnn_cell(self, hidden, A, mk):     # 图序列
+    def ggnn_cell(self, hidden, A, mk):   
         w_ih, w_hh, b_ih, b_hh = self.init_model(mk)
         input_in = torch.matmul(A[:, :A.shape[0]], self.linear_edge_in(hidden)) + self.b_iah
         input_out = torch.matmul(A[:, A.shape[0]: 2 * A.shape[0]], self.linear_edge_out(hidden)) + self.b_oah
         inputs = torch.cat([input_in, input_out], 1)  # [2, 6, 200]
 
-        gi = F.linear(inputs, w_ih, b_ih) # [4, 300]
-        gh = F.linear(hidden, w_hh, b_hh)  # [4, 300]
+        gi = F.linear(inputs, w_ih, b_ih)
+        gh = F.linear(hidden, w_hh, b_hh) 
 
         i_r, i_i, i_n = gi.chunk(3, 1)
         h_r, h_i, h_n = gh.chunk(3, 1)
         resetgate = torch.sigmoid(i_r + h_r)
         updategate = torch.sigmoid(i_i + h_i)
         newgate = torch.tanh(i_n + resetgate * h_n)
-        hy = newgate + updategate * (hidden - newgate)   # 该图里面各结点的表示 [2, 6, 100]
+        hy = newgate + updategate * (hidden - newgate) 
         return hy
 
     def forward(self, hidden, A_seq, mk):

@@ -11,3 +11,7 @@ Core codes of RMGRec here
 - Gowalla [description:http://snap.stanford.edu/data/loc-gowalla.html; download:http://snap.stanford.edu/data/loc-gowalla_totalCheckins.txt.gz]
 <br>E. Cho, S. A. Myers, J. Leskovec. Friendship and Mobility: Friendship and Mobility: User Movement in Location-Based Social Networks ACM SIGKDD International Conference on Knowledge Discovery and Data Mining (KDD), 2011.
 - Put the raw data into directory `data`, then run `data/preprocess.py`. The generatd `session.pickle` and `transition.pickle` are used for RMGRec.
+# Run
+```
+python main.py
+```

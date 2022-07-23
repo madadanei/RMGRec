@@ -1,4 +1,3 @@
-import torch
 from torch import nn
 import torch.nn.functional as F
 from helper.utils import *
@@ -27,7 +26,7 @@ class time_gat(nn.Module):
         A = A + trans_to_cuda(torch.eye(A.shape[-1]))
         attention = torch.where(A>0, e, zero_vec)
         attention = F.softmax(attention, dim=1)
-        attention = F.dropout(attention, self.dropout, training=self.training)
+        # attention = F.dropout(attention, self.dropout, training=self.training)
         h_prime = torch.matmul(attention, h)
         h_prime = time_weighted(h_prime)
         if self.concat:
@@ -45,9 +44,14 @@ def time_weighted(h):
 
 def similarity_weighted(h):
     h_c = h[-1]
-    sim = trans_to_cuda(torch.Tensor([(torch.matmul(h_i.T, h_c)) for h_i in h]))
+    sim = []
+    for h_i in h:
+        if torch.cosine_similarity(h_i, h_c, dim=0).item() > 0:
+            sim.append(torch.cosine_similarity(h_i, h_c, dim=0).item())
+        else:
+            sim.append(0)
+    sim = trans_to_cuda(torch.Tensor(sim))
     sim /= sim.sum()
     h_sim = torch.sum(h * sim.reshape(-1, 1), dim=0)
     return h_sim
-
 

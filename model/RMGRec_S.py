@@ -4,7 +4,7 @@ from layers.meta_learner import *
 from layers.meta_ggsnn import *
 
 
-class RMGRec(nn.Module):
+class RMGRec_S(nn.Module):
     def __init__(self, opt, n_node, params, time_A, region_A, time_out, region_out):
         super().__init__()
         self.n_node = n_node
@@ -20,7 +20,7 @@ class RMGRec(nn.Module):
         self.WS = nn.Conv2d(in_channels=1, out_channels=1, kernel_size=1, stride=1, padding=0)
         self.WT = nn.Conv2d(in_channels=1, out_channels=1, kernel_size=1, stride=1, padding=0)
         self.WF = nn.Conv2d(in_channels=1, out_channels=1, kernel_size=1, stride=1, padding=0)
-        self.STF = nn.Linear(2*self.hidden_size, self.hidden_size, bias=True)
+        self.STF = nn.Linear(self.hidden_size, self.hidden_size, bias=True)
 
         self.gate_size = self.hidden_size
         self.w_h1 = nn.Parameter(torch.zeros(self.gate_size, self.hidden_size))
@@ -37,8 +37,7 @@ class RMGRec(nn.Module):
         self.region_A = region_A
         self.timeslot = list(time_A.keys())
         self.region = list(region_A.keys())
-        self.mk_learner_r = mk_learner(self.hidden_size, self.meta_size).to("cuda")
-        self.mk_learner_t = mk_learner(self.hidden_size, self.meta_size).to("cuda")
+        self.mk_learner_r = mk_learner(self.hidden_size, 2*self.meta_size).to("cuda")
         self.meta_ggsnn = meta_ggsnn(self.hidden_size, self.meta_size)
 
         self.predictor = nn.Linear(2 * self.hidden_size, self.n_node, bias=True)
@@ -57,12 +56,9 @@ class RMGRec(nn.Module):
     def mk_compute(self):
         A_s = trans_to_cuda(torch.tensor(np.array(list(self.region_A.values())))).float()
         out_s = trans_to_cuda(torch.tensor(np.array(list(self.region_out.values())))).float()
-        A_t = trans_to_cuda(torch.tensor(np.array(list(self.time_A.values())))).float()
-        out_t = trans_to_cuda(torch.tensor(np.array(list(self.time_out.values())))).float()
         hidden = trans_to_cuda(self.embedding.weight)
         SMK = self.mk_learner_r(hidden, A_s, out_s)
-        TMK = self.mk_learner_t(hidden, A_t, out_t)
-        return SMK, TMK
+        return SMK
 
     def forward(self, lens, a, A_freq, A_time, A_loc, items, mask, cross_s, inputs, time_seq, loc_seq):
         ######  1. inter-session and cross-session
@@ -91,7 +87,7 @@ class RMGRec(nn.Module):
         s = torch.sum(s * avg_mask.view(mask.shape[0], -1, 1).float(), dim=1)
 
         s_t, s_sim, ht = [], [], []
-        SMK, TMK = self.mk_compute()
+        SMK = self.mk_compute()
         for idx, l in enumerate(lens):
             i, j = sum(lens[:idx]), sum(lens[:idx + 1])  ######  2. cross-session
             hidden_s = s[i:j]  # [3,256]
@@ -102,15 +98,11 @@ class RMGRec(nn.Module):
             mask_st = mask[j - 1]  ######  3. meta
             len_st = torch.sum(mask_st).item()
             input_st = inputs[j - 1][:len_st]
-            time_st = time_seq[j - 1][:len_st]
             region_st = loc_seq[j - 1][:len_st]
             items_st = np.unique(input_st)
             a_st = [np.where(items_st == i)[0][0] for i in input_st]
-            seq_t = [time_idx(t, self.time_delta) for t in time_st[1:len_st]]
             seq_r = [region_idx(t, self.params) for t in region_st[1:len_st]]
-            mk = torch.stack(
-                [torch.cat([TMK[self.timeslot.index(i)], SMK[self.region.index(j)]], dim=0) for i, j in
-                 zip(seq_t, seq_r)])
+            mk = torch.stack([SMK[self.region.index(j)] for j in seq_r])
             A_seq = graph_mask(a_st, len(items_st))
             items_st = trans_to_cuda(torch.Tensor(items_st).long())
             st_hidden = self.meta_ggsnn(self.embedding(items_st), A_seq, mk)  # [seq_len, hidden_dim]
@@ -123,6 +115,7 @@ class RMGRec(nn.Module):
         gate = torch.sigmoid(h_t + h_sim + self.b_h1)
         s_out = gate * s_t + (1 - gate) * s_sim  # dynamic user preference
         ht = torch.stack(ht, 0)  # st state influence
+
         out = torch.cat([s_out, ht], dim=1)
         out = self.predictor(out)
         l = F.log_softmax(out, dim=-1)
